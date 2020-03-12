@@ -1,11 +1,11 @@
 # hoover
 
-Add a short description here!
+Package to calculate the log probability of foregrounds.
 
 
 ## Description
 
-A longer description of your project goes here...
+Given a dataset $\mathbf{d}$, this package calculates, and samples from, the maximum likelihood set of foreground parameters, $P(\mathbf{\theta}}\mathbf{d})$.
 
 
 ## Note

@@ -48,3 +48,9 @@ MANIFEST
 
 # Per-project virtualenvs
 .venv*/
+
+# Per-project conda environment
+env/
+
+# Per-project vscode settings
+.vscode/
