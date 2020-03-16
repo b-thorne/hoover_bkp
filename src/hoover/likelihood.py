@@ -1,9 +1,5 @@
-from copy import deepcopy
-
 import jax.numpy as np
 from jax import jit
-from scipy import linalg, stats
-
 from .seds import FMatrix
 
 
@@ -54,7 +50,8 @@ class LogProb(object):
         """ Convenience function to return the component covariances,
         `N_T_inv`, for a given set of spectral parameters.
         """
-        return self._N_T_inv(pars, *args, **kwargs)
+        # NOT IMPLEMENTED
+        #return self._N_T_inv(pars, *args, **kwargs)
 
     def _preprocess_data(self, data, covariance):
         """ This function does some preprocessing of the observed data

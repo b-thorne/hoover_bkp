@@ -98,6 +98,23 @@ class WhiteNoise(object):
         return nell
 
 def _pol_spec(weight, ells, fwhm=None):
+    """ Function to calculate white noise power spectrum with option to
+    add beam effects. 
+
+    Parameters
+    ----------
+    weight: ndarray
+        Array containing weights of frequency channels, shape (Nfreq)
+    ells: ndarray
+        Array of multipoles over which to calculate the noise power spectrum.
+    fwhm: float (optional, default=None) 
+        If not None, deconvolve a beam with this fwhm in radians.
+
+    Returns
+    -------
+    ndarray
+        Power spectrum of noise.
+    """
     if fwhm is not None:
         print(fwhm)
         return weight / _gaussian_beam(fwhm, ells) ** 2
@@ -105,4 +122,18 @@ def _pol_spec(weight, ells, fwhm=None):
         return weight * np.ones_like(ells)
 
 def _gaussian_beam(fwhm, ells):
+    """ Function to calculate a Gaussian window function in harmonic space.
+
+    Parameters
+    ----------
+    fwhm: float
+        Full width at half-maximum of the Gaussian beam, in radians.
+    ells: ndarray
+        Array containing the multipoles over which to calculate the beam.
+
+    Returns
+    -------
+    ndarray
+        Array containing the beam window function.
+    """
     return np.exp(- ells * (ells + 1) * fwhm ** 2 / (np.log(8) * 2))

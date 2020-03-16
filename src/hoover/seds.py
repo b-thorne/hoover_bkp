@@ -23,8 +23,7 @@ class FMatrix(object):
             matrix, `F`.
         """
         assert isinstance(components, list)
-        # check that the list of components correspond to existing
-        # functions
+        # check that the list of components correspond to existing functions
         for component in components:
             assert component in ['dustmbb', 'syncpl', 'cmb', 'sync_curvedpl']
         self.components = components
@@ -34,14 +33,15 @@ class FMatrix(object):
             self.parameters = parameters
         if args:
             self.parameters.update(*args)
-        # evaluate each component function for the point in parameter space specificted by `parameters`
-        # N.B that each `comp_func` is passed all the parameters - this requires that no two functions
-        # share argument names.
+        # evaluate each component function for the point in parameter space
+        # specified by `parameters` N.B that each `comp_func` is passed all
+        # the parameters - this requires that no two functions share argument
+        # names.
         outputs = [globals()[comp_func](**self.parameters)[None] for comp_func in self.components]
         return np.concatenate(list(outputs))
 
 @jit
-def cmb(nu: np.ndarray, *args, **kwargs):
+def cmb(nu: np.ndarray, *args, **kwargs) -> np.ndarray:
     """ Function to compute CMB SED.
 
     Parameters
