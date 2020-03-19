@@ -54,3 +54,6 @@ env/
 
 # Per-project vscode settings
 .vscode/
+
+# Log files
+logs/**
