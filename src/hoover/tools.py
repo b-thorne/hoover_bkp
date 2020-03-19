@@ -4,7 +4,7 @@ import jax.numpy as np
 
 
 class WhiteNoise(object):
-    """ Simple white noise model. See eqs (1) and (2) from arxiv: 9705188.
+    r""" Simple white noise model. See eqs (1) and (2) from arxiv: 9705188.
     """
     def __init__(self, weights=None, sens=None, pol=True):
         if weights is not None:
@@ -23,7 +23,7 @@ class WhiteNoise(object):
         return
 
     def map(self, nside, seed=3232):
-        """ Function to generate a realization of the noise level
+        r""" Function to generate a realization of the noise level
         as a HEALPix map, with a given `nside`.
 
         Parameters
@@ -49,7 +49,7 @@ class WhiteNoise(object):
         return self._weight_to_spec(lmax, fwhm)
 
     def get_pix_var_map(self, nside):
-        """ Function to return a map containing the variance
+        r""" Function to return a map containing the variance
         in each pixel at each frequency. This is a product
         consumed by the `hoover.likelihood.LogProb` object,
         and is provided for convenient use with that.
@@ -70,7 +70,7 @@ class WhiteNoise(object):
         return out * pix_var[..., None, None]
 
     def _get_pix_var(self, npix):
-        """ Pixel variance is given by:
+        r""" Pixel variance is given by:
 
         ..math: \sigma_{\rm pix}^2 = \frac{w^{-1}}{4 \pi } N_{\rm pix}
         """
@@ -80,7 +80,7 @@ class WhiteNoise(object):
         return 4. * np.pi * sens ** 2 / (4. * np.pi * (180. / np.pi) ** 2 * 60. ** 2)
 
     def _weight_to_spec(self, lmax, fwhm=None):
-        """ Noise spectrum is given by:
+        r""" Noise spectrum is given by:
 
         ..math: N_\ell = w^{-1} B^2_{\ell}
 
@@ -98,7 +98,7 @@ class WhiteNoise(object):
         return nell
 
 def _pol_spec(weight, ells, fwhm=None):
-    """ Function to calculate white noise power spectrum with option to
+    r""" Function to calculate white noise power spectrum with option to
     add beam effects. 
 
     Parameters
@@ -122,7 +122,7 @@ def _pol_spec(weight, ells, fwhm=None):
         return weight * np.ones_like(ells)
 
 def _gaussian_beam(fwhm, ells):
-    """ Function to calculate a Gaussian window function in harmonic space.
+    r""" Function to calculate a Gaussian window function in harmonic space.
 
     Parameters
     ----------

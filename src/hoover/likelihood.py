@@ -4,7 +4,7 @@ from .seds import FMatrix
 
 
 class LogProb(object):
-    """ Class calculating the marginalize posterior of spectral parameters
+    r""" Class calculating the marginalize posterior of spectral parameters
     given some observed data, its covariance, and a model for the emission
     of different components.
 
@@ -17,7 +17,7 @@ class LogProb(object):
         self._priors = priors
 
     def __call__(self, pars, *args, **kwargs):
-        """ This method computes the log probability at a point in parameter
+        r""" This method computes the log probability at a point in parameter
         space specified by `pars` and any additional `kwargs` that may overwrite
         members of the `pars` dictionary.
 
@@ -40,21 +40,21 @@ class LogProb(object):
         return _lnP(lnprior, T_bar, N_T_inv)
 
     def get_amplitude_expectation(self, pars, *args, **kwargs):
-        """ Convenience function to return the component-separated expected
+        r""" Convenience function to return the component-separated expected
         amplitudes, `T_bar`, taking care of the relevant reshaping.
         """
         T_bar = self._T_bar(pars, *args, **kwargs)
         return np.moveaxis(T_bar.reshape(self.npol, self.npix, -1), 2, 0)
 
     def get_amplitdue_covariance(self, pars, *args, **kwargs):
-        """ Convenience function to return the component covariances,
+        r""" Convenience function to return the component covariances,
         `N_T_inv`, for a given set of spectral parameters.
         """
         # NOT IMPLEMENTED
         #return self._N_T_inv(pars, *args, **kwargs)
 
     def _preprocess_data(self, data, covariance):
-        """ This function does some preprocessing of the observed data
+        r""" This function does some preprocessing of the observed data
         and covariance.
 
         We reshape the data from (Nfreq, Npol, Npix) to (Npol * Npix, Nfreq).
@@ -83,7 +83,7 @@ class LogProb(object):
         self.N_inv_d = self.data * self.N_inv #Inverse variance-weighted data
 
     def _reorder_reshape_inputs(self, arr):
-        """ Function to reorder axes and reshape dimensions of input data.
+        r""" Function to reorder axes and reshape dimensions of input data.
 
         This takes input data, assumed to be of shape: (Nfreq, Npol, Npix)
         and converts to shape (Npix * Npol, Nfreq), which is easier to work
@@ -132,7 +132,7 @@ class LogProb(object):
 
 @jit
 def _N_T_inv(F: np.ndarray, N_inv: np.ndarray) -> np.ndarray:
-    """Function to calculate the inverse covariance of component
+    r"""Function to calculate the inverse covariance of component
     amplitudes, `N_T_inv. This is an implementation of Equation
     (A4) in 1608.00551. See also Equation (A10) for interpretation.
 
@@ -154,7 +154,7 @@ def _N_T_inv(F: np.ndarray, N_inv: np.ndarray) -> np.ndarray:
 
 @jit
 def _T_bar(F: np.ndarray, N_T_inv: np.ndarray, N_inv_d: np.ndarray) -> np.ndarray:
-    """Function to calculate the expected component amplitudes, `T_bar`.
+    r"""Function to calculate the expected component amplitudes, `T_bar`.
     This is an implementation of Equation (A4) in 1608.00551. See also
     Equation (A10) for interpretation.
 
@@ -178,7 +178,7 @@ def _T_bar(F: np.ndarray, N_T_inv: np.ndarray, N_inv_d: np.ndarray) -> np.ndarra
 
 @jit
 def _lnP(lnprior, T_bar, N_T_inv):
-    """ Function to calculate the posterior marginalized over
+    r""" Function to calculate the posterior marginalized over
     amplitude parameters.
 
     This function calcualtes Equation (A7), with the inclusion of a
@@ -207,6 +207,6 @@ def _lnP(lnprior, T_bar, N_T_inv):
 
 @jit
 def _log_gaussian(par, mean, std):
-    """ Function used to calculate a Gaussian prior.
+    r""" Function used to calculate a Gaussian prior.
     """
     return 0.5 * ((par - mean) / std) ** 2

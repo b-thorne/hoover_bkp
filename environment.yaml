@@ -14,7 +14,6 @@ dependencies:
   - pysm3
   - pip:
      # add here only pip-packages that are not available in conda/conda-forge! E.g.:
-     - optuna
      - corner
      - jaxlib
      - jax

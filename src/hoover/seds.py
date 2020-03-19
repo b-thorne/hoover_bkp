@@ -3,7 +3,7 @@ from jax import grad, jit, vmap
 
 
 class FMatrix(object):
-    """ Class to construct the foreground mixing matrix.
+    r""" Class to construct the foreground mixing matrix.
 
     This class models foreground SEDs of the different
     components of the sky model. This is an implementation of
@@ -11,7 +11,7 @@ class FMatrix(object):
     spectral parameters.
     """
     def __init__(self, components):
-        """ This method initializes the `FMatrix` with a list of
+        r""" This method initializes the `FMatrix` with a list of
         function names. These functions must exist in the current
         global name space, and should be defined in this file.
 
@@ -42,12 +42,17 @@ class FMatrix(object):
 
 @jit
 def cmb(nu: np.ndarray, *args, **kwargs) -> np.ndarray:
-    """ Function to compute CMB SED.
+    r""" Function to compute CMB SED.
 
     Parameters
     ----------
     nu: float, or array_like(float)
         Frequency in GHz.
+
+    Returns
+    -------
+    ndarray
+        CMB sed evaluated at frequency nu.
     """
     x = 0.0176086761 * nu
     ex = np.exp(x)
@@ -57,7 +62,7 @@ def cmb(nu: np.ndarray, *args, **kwargs) -> np.ndarray:
 
 @jit
 def syncpl(nu: np.ndarray, nu_ref_s: np.float32, beta_s: np.float32, *args, **kwargs) -> np.ndarray:
-    """ Function to compute synchrotron power law SED.
+    r""" Function to compute synchrotron power law SED.
 
     Parameters
     ----------
@@ -76,7 +81,7 @@ def syncpl(nu: np.ndarray, nu_ref_s: np.float32, beta_s: np.float32, *args, **kw
 
 @jit
 def sync_curvedpl(nu: np.ndarray, nu_ref_s: np.float32, beta_s: np.float32, beta_c: np.float32, *args, **kwargs) -> np.ndarray:
-    """ Function to compute curved synchrotron power law SED.
+    r""" Function to compute curved synchrotron power law SED.
 
     Parameters
     ----------
@@ -97,7 +102,7 @@ def sync_curvedpl(nu: np.ndarray, nu_ref_s: np.float32, beta_s: np.float32, beta
 
 @jit
 def dustmbb(nu: np.ndarray, nu_ref_d: np.float32, beta_d: np.float32, T_d: np.float32, *args, **kwargs) -> np.ndarray:
-    """ Function to compute modified blackbody dust SED.
+    r""" Function to compute modified blackbody dust SED.
 
     Parameters
     ----------
