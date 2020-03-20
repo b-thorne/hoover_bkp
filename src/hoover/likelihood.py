@@ -12,8 +12,8 @@ class LogProb(object):
     terms in Equation (A7) of 1608.00551.
     """
     def __init__(self, data, covariance, fmatrix, priors={}) :
-        self._fmatrix = fmatrix
         self._preprocess_data(data, covariance)
+        self._fmatrix = fmatrix
         self._priors = priors
 
     def __call__(self, pars, *args, **kwargs):
