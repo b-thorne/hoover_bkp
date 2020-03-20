@@ -11,12 +11,14 @@ class LogProb(object):
     This class links together the functions required to calculate the
     terms in Equation (A7) of 1608.00551.
     """
-    def __init__(self, data, covariance, fmatrix, priors={}) :
+    def __init__(self, data, covariance, fmatrix, fixed_parameters, priors) :
         self._preprocess_data(data, covariance)
         self._fmatrix = fmatrix
         self._priors = priors
+        self._fixed_parameters = fixed_parameters
+        self._varied_parameters = sorted(priors.keys())
 
-    def __call__(self, pars, *args, **kwargs):
+    def __call__(self, *args, **kwargs):
         r""" This method computes the log probability at a point in parameter
         space specified by `pars` and any additional `kwargs` that may overwrite
         members of the `pars` dictionary.
@@ -32,21 +34,24 @@ class LogProb(object):
         float
             The log probability at this point in parameter space.
         """
-        pars.update(kwargs)
-        lnprior = self._lnprior()
-        F = self._F(pars)
-        N_T_inv = self._N_T_inv(pars, F=F)
-        T_bar = self._T_bar(pars, F=F, N_T_inv=N_T_inv)
+        try:
+            assert len(args) == len(self._varied_parameters)
+        except AssertionError:
+            raise AssertionError("Must pass argument for each varied parameter.")
+        lnprior = self._lnprior(*args)
+        F = self._F(*args)
+        N_T_inv = self._N_T_inv(*args, F=F)
+        T_bar = self._T_bar(*args, F=F, N_T_inv=N_T_inv)
         return _lnP(lnprior, T_bar, N_T_inv)
 
-    def get_amplitude_expectation(self, pars, *args, **kwargs):
+    def get_amplitude_expectation(self, *args, **kwargs):
         r""" Convenience function to return the component-separated expected
         amplitudes, `T_bar`, taking care of the relevant reshaping.
         """
-        T_bar = self._T_bar(pars, *args, **kwargs)
+        T_bar = self._T_bar(*args, **kwargs)
         return np.moveaxis(T_bar.reshape(self.npol, self.npix, -1), 2, 0)
 
-    def get_amplitdue_covariance(self, pars, *args, **kwargs):
+    def get_amplitdue_covariance(self, *args, **kwargs):
         r""" Convenience function to return the component covariances,
         `N_T_inv`, for a given set of spectral parameters.
         """
@@ -101,32 +106,27 @@ class LogProb(object):
         """
         return np.moveaxis(arr, (0, 1, 2), (2, 0, 1)).reshape(self.data_shape).astype(np.float32)
 
-    def _F(self, pars, *args, **kwargs):
-        pars.update(kwargs)
-        return self._fmatrix(**pars)
+    def _F(self, *args):
+        varied_parameters = dict(zip(self._varied_parameters, args))
+        return self._fmatrix(**self._fixed_parameters, **varied_parameters)
 
-    def _N_T_inv(self, pars, F=None, *args, **kwargs):
-        pars.update(kwargs)
+    def _N_T_inv(self, *args, F=None):
         if F is None:
-            F = self._F(pars)
+            F = self._F(*args)
         return _N_T_inv(F, self.N_inv)
 
-    def _T_bar(self, pars, F=None, N_T_inv=None, *args, **kwargs):
-        pars.update(kwargs)
+    def _T_bar(self, *args, F=None, N_T_inv=None):
         if F is None:
-            F = self._F(pars)
+            F = self._F(*args)
         if N_T_inv is None:
-            N_T_inv = self._N_T_inv(pars, F=F)
+            N_T_inv = self._N_T_inv(F=F)
         return _T_bar(F, N_T_inv, self.N_inv_d)
 
-    def _lnprior(self, *args, **kwargs):
+    def _lnprior(self, *args):
         logprior = 0
-        for key, (mean, std) in self._priors.items():
-            par = kwargs.get(key, None)
-            if par is None:
-                pass
-            else:
-                logprior += _log_gaussian(par, mean, std)
+        for arg, par in zip(args, self._varied_parameters):
+            mean, std = self._priors[par]
+            logprior += _log_gaussian(arg, mean, std)
         return logprior
 
 
