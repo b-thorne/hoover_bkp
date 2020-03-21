@@ -11,23 +11,52 @@ class LogProb(object):
     This class links together the functions required to calculate the
     terms in Equation (A7) of 1608.00551.
     """
-    def __init__(self, data, covariance, fmatrix, fixed_parameters, priors) :
+    def __init__(self, data, covariance, fmatrix, fixed_parameters, priors):
+        r""" The setup of this class requires the observed multifrequency
+        sky maps, their pixel covariance (assumed diagonal in pixel space), 
+        the SED matrix (instance of `hoover.FMatrix`), a dictionary
+        containing the fixed parameter and their values, and a set of priors,
+        which tell the likelihood which parameters are to be let vary.
+
+        Parameters
+        ----------
+        data: ndarray
+            Array of shape (Nfreq, Npol, Npix) containing the observed
+            multi-frequency data.
+        covariance: ndarray
+            Array of shape (Nfreq, Npol, Npix) containing the pixel covariance
+            of the array `data`.
+        fmatrix: object, `hoover.FMatrix`
+            Instance of `hoover.FMatrix` that defines the component scaling
+            in the fitted sky model.
+        fixed_parameters: dict
+            Dictionary, where key, value pairs correspond to parameter names
+            and values to be fixed.
+        priors: dict
+            Dictionary, where key, value pairs correpsond to which parameters
+            are allowed to vary, and the corresponding mean and standard
+            deviation of the Gaussian prior.
+        """
         self._preprocess_data(data, covariance)
         self._fmatrix = fmatrix
         self._priors = priors
         self._fixed_parameters = fixed_parameters
         self._varied_parameters = sorted(priors.keys())
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, theta, ret_neg=False):
         r""" This method computes the log probability at a point in parameter
         space specified by `pars` and any additional `kwargs` that may overwrite
         members of the `pars` dictionary.
 
         Parameters
         ----------
-        pars: dictionary
-            Dictionary containing all the necessary parameters to specify
-            the sky model.
+        theta: ndarray
+            Array containing the parameters that are being varied.
+            These should match the parameters given as priors when
+            instantiating this object.
+        ret_neg: bool (optional, default=False)
+            If True, return the negative log likelihood. Else return
+            the positive.
 
         Returns
         -------
@@ -35,20 +64,25 @@ class LogProb(object):
             The log probability at this point in parameter space.
         """
         try:
-            assert len(args) == len(self._varied_parameters)
+            assert len(theta) == len(self._varied_parameters)
         except AssertionError:
             raise AssertionError("Must pass argument for each varied parameter.")
-        lnprior = self._lnprior(*args)
-        F = self._F(*args)
-        N_T_inv = self._N_T_inv(*args, F=F)
-        T_bar = self._T_bar(*args, F=F, N_T_inv=N_T_inv)
-        return _lnP(lnprior, T_bar, N_T_inv)
+        lnprior = self._lnprior(theta)
+        F = self._F(theta)
+        N_T_inv = self._N_T_inv(theta, F=F)
+        T_bar = self._T_bar(theta, F=F, N_T_inv=N_T_inv)
+        lnP = _lnP(lnprior, T_bar, N_T_inv)
+        # if ret_neg, return negative loglikelihood. Convenient for use
+        # with minimization functions to find ML.
+        if ret_neg:
+            return - lnP
+        return lnP
 
-    def get_amplitude_expectation(self, *args, **kwargs):
+    def get_amplitude_expectation(self, theta):
         r""" Convenience function to return the component-separated expected
         amplitudes, `T_bar`, taking care of the relevant reshaping.
         """
-        T_bar = self._T_bar(*args, **kwargs)
+        T_bar = self._T_bar(theta)
         return np.moveaxis(T_bar.reshape(self.npol, self.npix, -1), 2, 0)
 
     def get_amplitdue_covariance(self, *args, **kwargs):
@@ -106,25 +140,25 @@ class LogProb(object):
         """
         return np.moveaxis(arr, (0, 1, 2), (2, 0, 1)).reshape(self.data_shape).astype(np.float32)
 
-    def _F(self, *args):
-        varied_parameters = dict(zip(self._varied_parameters, args))
+    def _F(self, theta):
+        varied_parameters = dict(zip(self._varied_parameters, theta))
         return self._fmatrix(**self._fixed_parameters, **varied_parameters)
 
-    def _N_T_inv(self, *args, F=None):
+    def _N_T_inv(self, theta, F=None):
         if F is None:
-            F = self._F(*args)
+            F = self._F(theta)
         return _N_T_inv(F, self.N_inv)
 
-    def _T_bar(self, *args, F=None, N_T_inv=None):
+    def _T_bar(self, theta, F=None, N_T_inv=None):
         if F is None:
-            F = self._F(*args)
+            F = self._F(theta)
         if N_T_inv is None:
-            N_T_inv = self._N_T_inv(F=F)
+            N_T_inv = self._N_T_inv(theta, F=F)
         return _T_bar(F, N_T_inv, self.N_inv_d)
 
-    def _lnprior(self, *args):
+    def _lnprior(self, theta):
         logprior = 0
-        for arg, par in zip(args, self._varied_parameters):
+        for arg, par in zip(theta, self._varied_parameters):
             mean, std = self._priors[par]
             logprior += _log_gaussian(arg, mean, std)
         return logprior
