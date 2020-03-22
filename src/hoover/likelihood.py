@@ -2,6 +2,7 @@ import jax.numpy as np
 from jax import jit
 from .seds import FMatrix
 
+__all__ = ['LogProb']
 
 class LogProb(object):
     r""" Class calculating the marginalize posterior of spectral parameters
@@ -37,11 +38,20 @@ class LogProb(object):
             are allowed to vary, and the corresponding mean and standard
             deviation of the Gaussian prior.
         """
-        self._preprocess_data(data, covariance)
+        self.nfreq, self.npol, self.npix = data.shape
+        self.N_inv_d = (data, covariance)
         self._fmatrix = fmatrix
         self._priors = priors
         self._fixed_parameters = fixed_parameters
         self._varied_parameters = sorted(priors.keys())
+
+    def __str__(self):
+        msg = r"""
+        Number of frequencies: {:d}
+        Number of polarization channels: {:d}
+        Number of pixels: {:d}
+        """.format(self.nfreq, self.npol, self.npix)
+        return msg
 
     def __call__(self, theta, ret_neg=False):
         r""" This method computes the log probability at a point in parameter
@@ -92,53 +102,38 @@ class LogProb(object):
         # NOT IMPLEMENTED
         #return self._N_T_inv(pars, *args, **kwargs)
 
-    def _preprocess_data(self, data, covariance):
-        r""" This function does some preprocessing of the observed data
-        and covariance.
+    @property
+    def N_inv(self):
+        return self.__N_inv
 
-        We reshape the data from (Nfreq, Npol, Npix) to (Npol * Npix, Nfreq).
+    @N_inv.setter
+    def N_inv(self, val):
+        self.__N_inv = val
 
+    @property
+    def N_inv_d(self):
+        return self.__N_inv_d
+
+    @N_inv_d.setter
+    def N_inv_d(self, val):
+        """ Setter method for the inverse-variance weighted data.
+        
         Parameters
         ----------
-        data: ndarray
-            Array of shape (Nfreq, Npol, Npix) containing observed sky.
-
-        cov: ndarray
-            Array of shape (Nfreqs, Npol, Npix) containing the noise covariance
-            of the observations `data`.
-
-        Returns
-        -------
-        None
+        val: tuple(ndarray)
+            Tuple containing the data and covariance arrays. Arrays must have
+            the same shape, and are expected in shape (Nfreq, Npol, Npix).
         """
+        (data, cov) = val
         try:
             assert data.ndim == 3
+            assert cov.ndim == 3
         except AssertionError:
             raise AssertionError("Data must have three dimensions, Nfreq, Npol, Npix")
-        self.nfreq, self.npol, self.npix = data.shape
-        self.data_shape = [self.npix * self.npol, self.nfreq]
-        self.data = self._reorder_reshape_inputs(data)
-        self.N_inv = 1. / self._reorder_reshape_inputs(covariance) #Inverse variance
-        self.N_inv_d = self.data * self.N_inv #Inverse variance-weighted data
-
-    def _reorder_reshape_inputs(self, arr):
-        r""" Function to reorder axes and reshape dimensions of input data.
-
-        This takes input data, assumed to be of shape: (Nfreq, Npol, Npix)
-        and converts to shape (Npix * Npol, Nfreq), which is easier to work
-        with in the likelihood.
-
-        Parameters
-        ----------
-        arr: ndarray
-            Numpy array with three dimensions.
-
-        Returns
-        -------
-        ndarray
-            Numpy array with two dimensions.
-        """
-        return np.moveaxis(arr, (0, 1, 2), (2, 0, 1)).reshape(self.data_shape).astype(np.float32)
+        shape = [self.npix * self.npol, self.nfreq]
+        data = _reorder_reshape_inputs(data, shape)
+        self.N_inv = 1. / _reorder_reshape_inputs(cov, shape)
+        self.__N_inv_d = data * self.__N_inv
 
     def _F(self, theta):
         varied_parameters = dict(zip(self._varied_parameters, theta))
@@ -244,3 +239,22 @@ def _log_gaussian(par, mean, std):
     r""" Function used to calculate a Gaussian prior.
     """
     return 0.5 * ((par - mean) / std) ** 2
+
+def _reorder_reshape_inputs(arr, shape):
+    r""" Function to reorder axes and reshape dimensions of input data.
+
+    This takes input data, assumed to be of shape: (Nfreq, Npol, Npix)
+    and converts to shape (Npix * Npol, Nfreq), which is easier to work
+    with in the likelihood.
+
+    Parameters
+    ----------
+    arr: ndarray
+        Numpy array with three dimensions.
+
+    Returns
+    -------
+    ndarray
+        Numpy array with two dimensions.
+    """
+    return np.moveaxis(arr, (0, 1, 2), (2, 0, 1)).reshape(shape).astype(np.float32)
