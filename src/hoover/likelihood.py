@@ -1,3 +1,6 @@
+import yaml
+import h5py
+
 import jax.numpy as np
 from jax import jit
 from .seds import FMatrix
@@ -12,7 +15,7 @@ class LogProb(object):
     This class links together the functions required to calculate the
     terms in Equation (A7) of 1608.00551.
     """
-    def __init__(self, data, covariance, fmatrix, fixed_parameters, priors):
+    def __init__(self, data=None, covariance=None, frequencies=None, model=None):
         r""" The setup of this class requires the observed multifrequency
         sky maps, their pixel covariance (assumed diagonal in pixel space), 
         the SED matrix (instance of `hoover.FMatrix`), a dictionary
@@ -38,19 +41,31 @@ class LogProb(object):
             are allowed to vary, and the corresponding mean and standard
             deviation of the Gaussian prior.
         """
-        self.nfreq, self.npol, self.npix = data.shape
-        self.N_inv_d = (data, covariance)
-        self._fmatrix = fmatrix
-        self._priors = priors
-        self._fixed_parameters = fixed_parameters
-        self._varied_parameters = sorted(priors.keys())
+        if (data is not None) and (covariance is not None) and (frequencies is not None):
+            self.data_setup(data, covariance, frequencies)
+
+        if model is not None:
+            self.model_setup(model)
 
     def __str__(self):
+        """ Magic method for conveniently printing object summary.
+        """
         msg = r"""
+        Data
+        ----
         Number of frequencies: {:d}
         Number of polarization channels: {:d}
         Number of pixels: {:d}
-        """.format(self.nfreq, self.npol, self.npix)
+
+        Model
+        -----
+        Components: {:s}
+        Free parameters: {:s} 
+        Fixed parameters: {:s}
+        """.format(self.nfreq, self.npol, self.npix, 
+            " ".join(self._components),
+            " ".join(self.free_parameters), 
+            " ".join(self._fixed_parameters))
         return msg
 
     def __call__(self, theta, ret_neg=False):
@@ -74,7 +89,7 @@ class LogProb(object):
             The log probability at this point in parameter space.
         """
         try:
-            assert len(theta) == len(self._varied_parameters)
+            assert len(theta) == len(self.free_parameters)
         except AssertionError:
             raise AssertionError("Must pass argument for each varied parameter.")
         lnprior = self._lnprior(theta)
@@ -87,6 +102,70 @@ class LogProb(object):
         if ret_neg:
             return - lnP
         return lnP
+
+    def data_setup(self, data, covariance, frequencies):
+
+        self.nfreq, self.npol, self.npix = data.shape
+        self.frequencies = frequencies
+        self.N_inv_d = (data, covariance)
+
+    def model_setup(self, model):
+        r""" Function to parse the model definition dictionary.
+
+        The first level of the dictionary has keys corresponding
+        to the different components, and must match one of the
+        functions in `hoover.seds`. The values of the keys are
+        dictionaries with `fixed` and `varied` keywords. These
+        contain further dictionaries with fixed parameter 
+        name / value pairs, and free parameter prior name / pairs.
+
+        Parameters
+        ----------
+        model: dict
+            Dictionary defining model.
+        """
+        self._components = list(model.keys())
+        self._fmatrix = FMatrix(self._components)
+        self._priors = {}
+        self._fixed_parameters = {}
+        for component in model.values():
+            # get list of free parameters for this component
+            prior = component.get('varied', None)
+            # if there are not free parameters prior is None
+            if prior is not None:
+                self._priors.update(prior)
+            # do the same for the fixed parameters
+            fix_par = component.get('fixed', None)
+            if fix_par is not None:
+                self._fixed_parameters.update(fix_par)
+
+        self.free_parameters = sorted(self._priors.keys())
+
+    def load_data_from_hdf5(self, fpath, record):
+        """ Method to instantiate data attributes using data saved
+        in an HDF5 archive.
+
+        Parameters
+        ----------
+        fpath: str, Path
+            Path to the hdf5 archive.
+        record: str
+            Record in which the data is stored. This could be the
+            name of the group in which the datasets are saved.
+        """
+        with h5py.File(fpath, 'r') as f:
+            grp = f[record]
+            data = grp['data'][...]
+            cov = grp['cov'][...]
+            frequencies = grp.attrs['frequencies']
+        self.data_setup(data, cov, frequencies)
+
+    def load_model_from_yaml(self, fpath):
+        """ Method to load a model configuration from a yaml file. 
+        """
+        with open(fpath) as f:
+            model = yaml.load(f, Loader=yaml.FullLoader)
+        self.model_setup(model)
 
     def get_amplitude_expectation(self, theta):
         r""" Convenience function to return the component-separated expected
@@ -101,6 +180,14 @@ class LogProb(object):
         """
         # NOT IMPLEMENTED
         #return self._N_T_inv(pars, *args, **kwargs)
+
+    @property
+    def free_parameters(self):
+        return self.__free_parameters
+
+    @free_parameters.setter
+    def free_parameters(self, val):
+        self.__free_parameters = val
 
     @property
     def N_inv(self):
@@ -133,11 +220,12 @@ class LogProb(object):
         shape = [self.npix * self.npol, self.nfreq]
         data = _reorder_reshape_inputs(data, shape)
         self.N_inv = 1. / _reorder_reshape_inputs(cov, shape)
-        self.__N_inv_d = data * self.__N_inv
+        self.__N_inv_d = data * self.N_inv
 
     def _F(self, theta):
-        varied_parameters = dict(zip(self._varied_parameters, theta))
-        return self._fmatrix(**self._fixed_parameters, **varied_parameters)
+        free_parameters = dict(zip(self.free_parameters, theta))
+        params = {**free_parameters, **self._fixed_parameters, 'nu': self.frequencies}
+        return self._fmatrix(**params)
 
     def _N_T_inv(self, theta, F=None):
         if F is None:
@@ -153,7 +241,7 @@ class LogProb(object):
 
     def _lnprior(self, theta):
         logprior = 0
-        for arg, par in zip(theta, self._varied_parameters):
+        for arg, par in zip(theta, self.free_parameters):
             mean, std = self._priors[par]
             logprior += _log_gaussian(arg, mean, std)
         return logprior
