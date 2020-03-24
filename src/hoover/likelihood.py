@@ -105,7 +105,6 @@ class LogProb(object):
         return lnP
 
     def data_setup(self, data, covariance, frequencies):
-
         self.nfreq, self.npol, self.npix = data.shape
         self.frequencies = frequencies
         self.N_inv_d = (data, covariance)
@@ -230,7 +229,14 @@ class LogProb(object):
         Parameters
         ----------
         npoints: int (optional, default=None)
-            If 
+            If npoints is not None, function returns an array
+            of draws from the prior of dimension (npoints, ndim).
+            This can be useful for initializing a set of optimization
+            runs, or samplers.
+        seed: int (optional, default=7837)
+            Seed for the PRNG key used by `jax`. `jax` has a subtly
+            different approach to random number generation to numpy.
+            Worth reading about this before setting this number.
 
         Returns
         -------
