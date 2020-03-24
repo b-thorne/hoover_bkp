@@ -3,6 +3,7 @@ import h5py
 
 import jax.numpy as np
 from jax import jit
+import jax
 from .seds import FMatrix
 
 __all__ = ['LogProb']
@@ -221,6 +222,36 @@ class LogProb(object):
         data = _reorder_reshape_inputs(data, shape)
         self.N_inv = 1. / _reorder_reshape_inputs(cov, shape)
         self.__N_inv_d = data * self.N_inv
+
+    def theta_0(self, npoints=None, seed=7837):
+        """ Function to generate a starting guess for optimization
+        or sampling by drawing a random point from the prior.
+
+        Parameters
+        ----------
+        npoints: int (optional, default=None)
+            If 
+
+        Returns
+        -------
+        ndarray
+            Array of length the number of free parameters.
+        """
+        key = jax.random.PRNGKey(seed)
+        if npoints is not None:
+            shape = (npoints, len(self.free_parameters))
+        else:
+            shape = (len(self.free_parameters),)
+        out = jax.random.normal(key, shape=shape, dtype=np.float32)
+        means = []
+        stds = []
+        for par in self.free_parameters:
+            mean, std = self._priors[par]
+            means.append(mean)
+            stds.append(std)
+        means = np.array(means)
+        stds = np.array(stds)
+        return means + out * stds 
 
     def _F(self, theta):
         free_parameters = dict(zip(self.free_parameters, theta))
