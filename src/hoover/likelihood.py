@@ -111,7 +111,7 @@ class LogProb(object):
 
     def model_setup(self, model):
         r""" Function to parse the model definition dictionary.
-
+    
         The first level of the dictionary has keys corresponding
         to the different components, and must match one of the
         functions in `hoover.seds`. The values of the keys are
@@ -141,7 +141,7 @@ class LogProb(object):
 
         self.free_parameters = sorted(self._priors.keys())
 
-    def load_data_from_hdf5(self, fpath, record):
+    def load_data_from_hdf5(self, fpath, mc=0):
         """ Method to instantiate data attributes using data saved
         in an HDF5 archive.
 
@@ -154,11 +154,55 @@ class LogProb(object):
             name of the group in which the datasets are saved.
         """
         with h5py.File(fpath, 'r') as f:
-            grp = f[record]
-            data = grp['data'][...]
-            cov = grp['cov'][...]
-            frequencies = grp.attrs['frequencies']
+            maps = f['maps']
+            data = maps['data_mc{:04d}'.format(mc)][...]
+            cov = maps['cov'][...]
+            frequencies = maps.attrs['frequencies']
         self.data_setup(data, cov, frequencies)
+
+    @classmethod
+    def load_data_from_hdf5_batch(cls, fpath, model=None):
+        """ Method to instantiate data attributes using data saved
+        in an HDF5 archive.
+
+        Note that a simpler structure for this method would place
+        the for loop within a single opening of the hdf5 file. 
+        However, this hogs the resource, and we want to be able
+        to write to this file from other processes.
+
+        Parameters
+        ----------
+        fpath: str, Path
+            Path to the hdf5 archive.
+        model: Path (optional, default=None)
+            If specified, this is a path to a yaml file containing
+            an SED model specification.
+
+        Returns
+        -------
+        `LogProb`
+            Instantiated `LogProb` object.
+        """
+        # get metadata from the simulation 
+        with h5py.File(fpath, 'r') as f:
+            maps = f['maps']
+            nmc = maps.attrs['monte_carlo']
+            frequencies = maps.attrs['frequencies']
+        
+        # loop over monte carlo realizations and return an initialized
+        # `LogProb` object. Each of these objects will still need to
+        # have a model loaded, unless the model keyword is defined.
+        for i in range(nmc):
+            with h5py.File(fpath, 'r') as f:
+                maps = f['maps']
+                cov = maps['cov'][...]
+                data = maps['data_mc{:04d}'.format(i)][...]
+            if model is None:
+                yield cls(data=data, covariance=cov, frequencies=frequencies)
+            else:
+                with open(model) as f:
+                    cfg = yaml.load(f, Loader=yaml.FullLoader)
+                yield cls(data=data, covariance=cov, frequencies=frequencies, model=cfg)
 
     def load_model_from_yaml(self, fpath):
         """ Method to load a model configuration from a yaml file. 
