@@ -57,3 +57,9 @@ env/
 
 # Log files
 logs/**
+
+# Data files
+data/**
+
+# Any hdf5 records
+**.h5
