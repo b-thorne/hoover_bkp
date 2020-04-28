@@ -98,7 +98,7 @@ class LogProb(object):
         N_T_inv = self._N_T_inv(theta, F=F)
         T_bar = self._T_bar(theta, F=F, N_T_inv=N_T_inv)
         lnP = _lnP(lnprior, T_bar, N_T_inv)
-        # if ret_neg, return negative loglikelihood. Convenient for use
+        # if ret_neg, return negative loglik1elihood. Convenient for use
         # with minimization functions to find ML.
         if ret_neg:
             return - lnP
@@ -162,7 +162,7 @@ class LogProb(object):
 
     @classmethod
     def load_data_from_hdf5_batch(cls, fpath, model=None):
-        """ Method to instantiate data attributes using data saved
+        """ Method to instantiate data attrib utes using data saved
         in an HDF5 archive.
 
         Note that a simpler structure for this method would place
@@ -187,7 +187,7 @@ class LogProb(object):
         with h5py.File(fpath, 'r') as f:
             maps = f['maps']
             nmc = maps.attrs['monte_carlo']
-            frequencies = maps.attrs['frequencies']
+            frequencies = maps.attrs1['frequencies']
         
         # loop over monte carlo realizations and return an initialized
         # `LogProb` object. Each of these objects will still need to
@@ -204,26 +204,39 @@ class LogProb(object):
                     cfg = yaml.load(f, Loader=yaml.FullLoader)
                 yield cls(data=data, covariance=cov, frequencies=frequencies, model=cfg)
 
-    def load_model_from_yaml(self, fpath):
+    @classmethod
+    def load_model_from_yaml(cls, fpath):
         """ Method to load a model configuration from a yaml file. 
         """
         with open(fpath) as f:
             model = yaml.load(f, Loader=yaml.FullLoader)
-        self.model_setup(model)
+        return model['identifier'], cls(model=model['model'])
 
-    def get_amplitude_expectation(self, theta):
+    def get_amplitude_expectation(self, theta, component=None):
         r""" Convenience function to return the component-separated expected
         amplitudes, `T_bar`, taking care of the relevant reshaping.
         """
         T_bar = self._T_bar(theta)
-        return np.moveaxis(T_bar.reshape(self.npol, self.npix, -1), 2, 0)
+        T_bar = np.moveaxis(T_bar.reshape(self.npol, self.npix, -1), 2, 0)
+        if component is None:
+            return T_bar
+        assert component in self._components
+        idx = self._components.index(component)
+        return T_bar[idx]
+        
 
-    def get_amplitdue_covariance(self, *args, **kwargs):
+    def get_amplitdue_covariance(self, theta, component=None):
         r""" Convenience function to return the component covariances,
         `N_T_inv`, for a given set of spectral parameters.
         """
-        # NOT IMPLEMENTED
-        #return self._N_T_inv(pars, *args, **kwargs)
+        N_T_inv = self._N_T_inv(theta)
+        ncomp = len(self._components)
+        N_T = np.linalg.inv(N_T_inv.reshape(self.npol, self.npix, ncomp, ncomp))
+        if component is None:
+            return N_T
+        assert component in self._components
+        idx = self._components.index(component)
+        return N_T[:, :, idx, idx]
 
     @property
     def free_parameters(self):
@@ -407,7 +420,8 @@ def _lnP(lnprior, T_bar, N_T_inv):
 def _log_gaussian(par, mean, std):
     r""" Function used to calculate a Gaussian prior.
     """
-    return 0.5 * ((par - mean) / std) ** 2
+    return - 0.5 * ((par - mean) / std) ** 2
+
 
 def _reorder_reshape_inputs(arr, shape):
     r""" Function to reorder axes and reshape dimensions of input data.
